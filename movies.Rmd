@@ -134,6 +134,10 @@ summary(movies_unnested)
 
 ```
 
+```{r}
+#Aqui vai ser a classificação
+
+```
 
 ```{r Group By Descriptives}
 ##COMO PODEREMOS FAZER AQUI O MESMO PARA GENRE?
