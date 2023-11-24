@@ -66,7 +66,6 @@ DataExplorer::create_report(movies_unnested)
 
 # Descritivas
 ```{r Descriptives}
-##SINTO QUE TODO ESTE CHUNK PODIA SER SIMPLIFICADO ;)
 
 sum(movies_unnested$budget_x)
 sum(movies_unnested$revenue)
@@ -152,7 +151,20 @@ movies_unnested %>%
 
 # Visuals
 ```{r visualizations}
-##FAZER NO ESQUISSE?
+movies_unnested <- movies_unnested %>%
+  mutate(year = year(date_x))
+
+movies_unnested %>%
+  filter(score > 90)
+
+
+library(ggplot2)
+
+ggplot(movies_unnested) +
+ aes(x = year, y = score) +
+ geom_point(shape = "circle", size = 1.5, colour = "#112446") +
+ theme_minimal()
+
 ```
 
 
