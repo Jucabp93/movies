@@ -6,7 +6,7 @@ author:
   - name: Joana Pereira
 ---
 
-# Carregamento das bibliotecas necessárias #
+# Carregamento das bibliotecas necessárias
 ```{r load-packages}
 library(tidyverse)
 library(janitor)
@@ -22,7 +22,7 @@ library(esquisse)
 library(corrplot)
 ```
 
-# Importação de dados #
+# Importação de dados
 ```{r load-dataset}
 movies <- read_csv("imdb_movies.csv",
                    col_types = list(
@@ -42,9 +42,7 @@ movies <- read_csv("imdb_movies.csv",
                   )
 ```
 
-# Limpeza de dados #
-
-# Primeiro foi necessário unnest a base de dados, porque numa mesma coluna encontravam-se os diferentes genre dos filmes separados por vírgulas.
+# Limpeza de dados
 ```{r unnest-genres}
 movies_unnested  <- movies |>
   separate_rows(genre, sep = ",") |>
@@ -58,118 +56,153 @@ movies_unnested  <- movies |>
   select(-na)
 ```
 
-#Posteriormente, sentimos falta de cirar uma nova variavel, que permitisse avaliar o gross profit de cada filme. O dataframe foi então alterado.
-```{r calculate-gross-profit}
-movies <- movies_unnested |>
-  mutate(gross_profit = revenue - budget_x)
-```
+# Exploratory Data Analysis
 
-#Também optamos por eliminar todas os filmes com score de 0 do dataframe. Existiam rows de revenue com 0, mas como os filmes tinham status Released, foram mantidas no dataframe.
-
-```{r revise score}
-movies <- 
-  movies %>%
-  filter(score > 0)
-```
-
-
-# Exploratory Data Analysis #
 ```{r check-data}
-summary(movies)
-str(movies)
-DataExplorer::create_report(movies)
+glimpse(movies_unnested)
+summary(movies_unnested)
+DataExplorer::create_report(movies_unnested)
 ```
 
-# Descritivas #
+# Descritivas
 ```{r Descriptives}
-sum(movies$budget_x)
-sum(movies$revenue)
-sum(movies$gross_profit)
-median(movies$budget_x)
-median(movies$revenue)
-median(movies$gross_profit)
-IQR(movies$budget_x)
-IQR(movies$revenue)
-IQR(movies$gross_profit)
-mean(movies$budget_x)
-mean(movies$revenue)
-mean(movies$gross_profit)
-sd(movies$budget_x)
-sd(movies$revenue)
-sd(movies$gross_profit)
 
-table(movies$status)
-table(movies$country)
-table(movies$orig_lang)
-table(movies$country, movies$status)
+sum(movies_unnested$budget_x)
+sum(movies_unnested$revenue)
+median(movies_unnested$budget_x)
+median(movies_unnested$revenue)
+IQR(movies_unnested$budget_x)
+IQR(movies_unnested$revenue)
+mean(movies_unnested$budget_x)
+mean(movies_unnested$revenue)
+sd(movies_unnested$budget_x)
+sd(movies_unnested$revenue)
 
-table(movies$drama)
-table(movies$action)
-table(movies$science_fiction)
-table(movies$adventure)
-table(movies$animation)
-table(movies$family)
-table(movies$fantasy)
-table(movies$comedy)
-table(movies$thriller)
-table(movies$crime)
-table(movies$horror)
-table(movies$mystery)
-table(movies$history)
-table(movies$war)
-table(movies$documentary)
-table(movies$romance)
-table(movies$music)
-table(movies$western)
-table(movies$tv_movie)
+table(movies_unnested$status)
+table(movies_unnested$country)
+table(movies_unnested$orig_lang)
+table(movies_unnested$country, movies_unnested$status)
+
+table(movies_unnested$drama)
+table(movies_unnested$action)
+table(movies_unnested$science_fiction)
+table(movies_unnested$adventure)
+table(movies_unnested$animation)
+table(movies_unnested$family)
+table(movies_unnested$fantasy)
+table(movies_unnested$comedy)
+table(movies_unnested$thriller)
+table(movies_unnested$crime)
+table(movies_unnested$horror)
+table(movies_unnested$mystery)
+table(movies_unnested$history)
+table(movies_unnested$war)
+table(movies_unnested$documentary)
+table(movies_unnested$romance)
+table(movies_unnested$music)
+table(movies_unnested$western)
+table(movies_unnested$tv_movie)
+
 ```
 
-#Também analisamos a média e o valor max do budget, revenue e gross profit.
+
+```{r Score Revised & Descriptives}
+
+##Remove all zeros from the score? Considering they were not reviewed yet.
+
+##MUITA CONFUSA AQUI, NÃO SEI SE POSSO FAZER ESTA ASSUMPTION, MAS ACHO MUITO ESTRANHO TER UM 0 NUM SCORE DE REVIEWS. SE NÃO ACHAREM NECESSÁRIO, NÃO SE CONSIDERA ESTE PASSO.
+
+mean_score <- mean(movies_unnested$score, na.rm = TRUE)
+
+movies_unnested$score_revised <- ifelse(movies_unnested$score == 0, mean_score, movies_unnested$score)
+
+glimpse(movies_unnested)
+
+median(movies_unnested$score_revised, na.rm = TRUE)
+IQR(movies_unnested$score_revised, na.rm = TRUE)
+mean(movies_unnested$score_revised, na.rm = TRUE)
+sd(movies_unnested$score_revised, na.rm = TRUE)
+min(movies_unnested$score_revised, na.rm = TRUE)
+max(movies_unnested$score_revised, na.rm = TRUE)
+
+summary(movies_unnested$score_revised)
+is.numeric(movies_unnested$score_revised)
+
+glimpse(movies_unnested)
+summary(movies_unnested)
+
+```
+
 
 ```{r Group By Descriptives}
-movies %>%
+##COMO PODEREMOS FAZER AQUI O MESMO PARA GENRE?
+
+movies_unnested %>%
   group_by(country) %>%
   summarize(meanbudget_bycountry = mean(budget_x),
-            meangrossprofit_bycountry = mean(gross_profit),
             meanrevenue_bycountry = mean(revenue),
             maxbudget_bycountry = max(budget_x),
             maxrevenue_bycountry = max(revenue),
-            maxgrossprofit_bycountry = max(gross_profit),
-            meanscore_bycountry = mean(score),
-            maxscore_bycountry = max(score))%>%
+            meanscore_bycountry = mean(score_revised, na.rm = TRUE))%>%
   ungroup
 
 ```
 
 
-# Visuals # 
+# Visuals
 ```{r visualizations}
-#MISSING
+movies_unnested <- movies_unnested %>%
+  mutate(year = year(date_x))
+
+movies_unnested %>%
+  filter(score > 90)
+
+
+library(ggplot2)
+
+ggplot(movies_unnested) +
+ aes(x = year, y = score) +
+ geom_point(shape = "circle", size = 1.5, colour = "#112446") +
+ theme_minimal()
 
 ```
 
 
+# Deal Missing Values
+```{r missing values}
+#Replace by the average
 
-# Normal Distribution #
-#Não obtivemos resultados devido ao tamanho do dataframe.
+movies_readyforanalysis <-
+  movies_unnested %>%
+  replace_na(list(budget_x = round(mean(movies_unnested$budget_x, na.rm = TRUE)),
+                  revenue = round(mean(movies_unnested$revenue, na.rm = TRUE))))
+                   
+glimpse(movies_readyforanalysis)
+summary(movies_readyforanalysis)
+```
+
+
+# Normal Distribution
 ```{r normal distribution}
-shapiro.test(movies$score)
-shapiro.test(movies$budget_x)
-shapiro.test(movies$revenue)
-shapiro.test(movies$gross_profit)
+##NÃO PERCEBO PORQUE AQUI DÁ ERRO!!
+
+shapiro.test(movies_readyforanalysis$score_revised)
+shapiro.test(movies_readyforanalysis$budget_x)
+shapiro.test(movies_readyforanalysis$revenue)
+
 ```
 
 
-# Correlações #
+# Correlações
 
 ```{r correlations}
 
-movies_numeric <-
-  movies %>%
-  select (budget_x,revenue,score, gross_profit)
+movies_readyforanalysis_numeric <-
+  movies_readyforanalysis %>%
+  select (budget_x,revenue,score_revised)
   
 correlation_matrix <-
-  cor(movies_numeric, method = "pearson")
+  cor(movies_readyforanalysis_numeric, method = "pearson")
 
 print(correlation_matrix)
 
@@ -177,64 +210,56 @@ corrplot(correlation_matrix)
 
 ```
 
-# Clustering # 
-
+# Clustering
 ```{r select attributes & zscores}
 
 #Select attributes
 #The same used for correlations
 
+summary(movies_readyforanalysis_numeric)
+glimpse(movies_readyforanalysis_numeric)
+
+
 #Z-Scores
 
-movies_numeric_standardized <-
-  movies_numeric %>%
-  mutate(zscore_budget = (budget_x - mean(budget_x))/sd(budget_x),
-         zscore_revenue = (revenue - mean(revenue))/sd(revenue),
-         zscore_score = (score - mean(score))/sd(score),
-         zscore_grossprofit = (gross_profit - mean(gross_profit))/sd(gross_profit)) %>%
-  select(zscore_budget, zscore_revenue, zscore_score, zscore_grossprofit)
+movies_readyforanalysis_numeric_standardized <-
+  movies_readyforanalysis_numeric %>%
+  mutate(zscore_budget = (budget_x - mean(budget_x,na.rm = T))/sd(budget_x),
+         zscore_revenue = (revenue - mean(revenue, na.rm = T))/sd(revenue),
+         zscore_score_revised = (score_revised - mean(score_revised, na.rm = T))/sd(score_revised)) %>%
+    select(zscore_budget, zscore_revenue, zscore_score_revised)
       
-movies_numeric_standardized
+movies_readyforanalysis_numeric_standardized
 
 ```
  
 ```{r clustering}
 
-resultado_kmeans <- kmeans(movies_numeric_standardized, centers = 3)
-movies_numeric_standardized$cluster <- as.character(resultado_kmeans$cluster)
+resultado_kmeans <- kmeans(movies_readyforanalysis_numeric_standardized, centers = 3)
+movies_readyforanalysis_numeric_standardized$cluster <- as.character(resultado_kmeans$cluster)
 
-ggplot(movies_numeric_standardized) +
+ggplot(movies_readyforanalysis_numeric_standardized) +
   aes(
     x = zscore_revenue,
-    y = zscore_score,
+    y = zscore_score_revised,
     colour = cluster
   ) +
   geom_point(shape = "circle", size = 1.5) +
   scale_color_hue(direction = 1) +
   theme_minimal()
 
-ggplot(movies_numeric_standardized) +
+ggplot(movies_readyforanalysis_numeric_standardized) +
   aes(
     x = zscore_budget,
-    y = zscore_score,
+    y = zscore_score_revised,
     colour = cluster
   ) +
   geom_point(shape = "circle", size = 1.5) +
   scale_color_hue(direction = 1) +
   theme_minimal()
 
-ggplot(movies_numeric_standardized) +
+ggplot(movies_readyforanalysis_numeric_standardized) +
   aes(x = zscore_budget, y = zscore_revenue, colour = cluster) +
-  geom_point(shape = "circle", size = 1.5) +
-  scale_color_hue(direction = 1) +
-  theme_minimal()
-
-ggplot(movies_numeric_standardized) +
-  aes(
-    x = zscore_grossprofit,
-    y = zscore_score,
-    colour = cluster
-  ) +
   geom_point(shape = "circle", size = 1.5) +
   scale_color_hue(direction = 1) +
   theme_minimal()
@@ -245,36 +270,32 @@ ggplot(movies_numeric_standardized) +
 centers <- as.data.frame(resultado_kmeans$centers)
 centers$cluster <- rownames(resultado_kmeans$centers)
 
-ggparcoord(centers, columns = 1:4, groupColumn = 5) 
+ggparcoord(centers, columns = 1:3, groupColumn = 4) 
 ```
 
 ```{r better hyper-parameters}
 
-fviz_nbclust(movies_numeric_standardized, kmeans, method = "wss", k.max = 10)
+fviz_nbclust(movies_readyforanalysis_numeric_standardized, kmeans, method = "wss", k.max = 10)
 
 ```
 
 ```{r after elbow method}
-# Choose 5 clusters - Only 2 clusters would not be informative enough.
+# Choose 4 clusters
 
-resultado_kmeans <- kmeans(movies_numeric_standardized, centers = 4)
-movies_numeric_standardized$cluster <- as.character(resultado_kmeans$cluster)
+resultado_kmeans <- kmeans(movies_readyforanalysis_numeric_standardized, centers = 4)
+movies_readyforanalysis_numeric_standardized$cluster <- as.character(resultado_kmeans$cluster)
 
 centers <- as.data.frame(resultado_kmeans$centers)
 centers$cluster <- rownames(resultado_kmeans$centers)
 
-ggparcoord(centers, columns = 1:4, groupColumn = 5) 
+ggparcoord(centers, columns = 1:3, groupColumn = 4) 
 
 ##Name of Clusters & Examples of Movies
-
-# Cluster 1 - Filmes com budget e lucros médios, mas muito bem pontuados (Budget, Revenue, Profit médios e Score elevado)
-# Cluster 2 - Filmes com budget e lucros elevados a médios, e mal pontuados (Budget elevado, Revenue e Profit médio, e Score baixo)
-# Cluster 3 - Filmes com budget e lucros baixos, e mediamente pontuados (Budget, Revenue e Profit baixo, Score médio)
-# Cluster 4 - Filmes com budget e lucros elevados, e muito bem pontuados (Budget, Revenue e Profit elevado, Score elevado)
+# Cluster 1-
+# Cluster 2-
+# Cluster 3-
+# Cluster 4-
 
 ```
 
-# Classification #
-
-# Regression #
 
