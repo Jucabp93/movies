@@ -9,17 +9,19 @@ author:
 # Carregamento das bibliotecas necessárias #
 ```{r load-packages}
 library(tidyverse)
+library(tidymodels)
 library(janitor)
+library(gt)
+library(gtsummary)
+library(ggstats)
 library(DataExplorer)
-library(dplyr)
 library(factoextra)
 library(GGally)
-library(tidyr)
-library(lubridate)
-library(stringr)
-library(ggplot2)
 library(esquisse)
 library(corrplot)
+library(rpart)
+library(rpart.plot)
+library(ModelMetrics)
 ```
 
 # Importação de dados #
@@ -192,10 +194,10 @@ ggplot(movies_unnested) +
 # Normal Distribution #
 #Não obtivemos resultados devido ao tamanho do dataframe.
 ```{r normal distribution}
-shapiro.test(movies$score)
-shapiro.test(movies$budget_x)
-shapiro.test(movies$revenue)
-shapiro.test(movies$gross_profit)
+#shapiro.test(movies$score)
+#shapiro.test(movies$budget_x)
+#shapiro.test(movies$revenue)
+#shapiro.test(movies$gross_profit)
 ```
 
 
@@ -315,5 +317,75 @@ ggparcoord(centers, columns = 1:4, groupColumn = 5)
 
 # Classification #
 
+Vamos criar uma árvore de decisão para prever se o filme obterá lucro ou não tendo em conta o score e o revenue.
+
+```{r classification}
+movies_classification <- movies |>
+  mutate(gross_pnl = ifelse(gross_profit > 0, "profit", "loss"))
+
+train_v <- sample(1:nrow(movies_classification), 0.80*nrow(movies_classification))
+
+train_df <- movies_classification[train_v, ]
+
+test_df <- movies_classification[-train_v, ]
+
+model <- as.formula(gross_pnl ~ score + revenue)
+
+tree <- rpart(model, train_df, control = rpart.control(maxdepth = 5))
+
+rpart.plot(tree)
+
+test_predictions <- predict(tree, test_df)
+
+predictions_rmse <- sqrt(mean((test_predictions - unlist(test_df[,"gross_pnl"]))^2))
+
+rmse(test_df$gross_pnl, test_predictions)
+
+glimpse(movies_classification)
+```
+
+
 # Regression #
 
+Vamos fazer uma regressão linear simples para verificar de que forma o score dos filmes varia, tendo em conta o budget e o revenue.
+
+```{r linear-regression-1}
+model_score <- lm(score ~ budget_x + revenue, data = movies)
+
+model_score |> tidy() |> gt()
+
+model_score |> tbl_regression()
+
+model_score |> ggcoef_model()
+```
+
+Vamos fazer uma regressão linear simples para prever a variação do gross profit, com base no género dos filmes.
+
+```{r linear-regression-2}
+model_profit <- lm(gross_profit ~ drama
+                  + action
+                  + science_fiction
+                  + adventure
+                  + animation
+                  + family
+                  + fantasy
+                  + comedy
+                  + thriller
+                  + crime
+                  + horror
+                  + mystery
+                  + history
+                  + war
+                  + documentary
+                  + romance
+                  + music
+                  + western
+                  + tv_movie,
+  data = movies)
+
+model_profit |> tidy() |> gt()
+
+model_profit |> tbl_regression()
+
+model_profit |> ggcoef_model()
+```
