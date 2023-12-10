@@ -1,0 +1,319 @@
+---
+title: "Análise da base de dados no IMDB"
+author:
+  - name: Tiago Adrego
+  - name: Sílvia Fonseca
+  - name: Joana Pereira
+---
+
+# Carregamento das bibliotecas necessárias #
+```{r load-packages}
+library(tidyverse)
+library(janitor)
+library(DataExplorer)
+library(dplyr)
+library(factoextra)
+library(GGally)
+library(tidyr)
+library(lubridate)
+library(stringr)
+library(ggplot2)
+library(esquisse)
+library(corrplot)
+```
+
+# Importação de dados #
+```{r load-dataset}
+movies <- read_csv("imdb_movies.csv",
+                   col_types = list(
+                     col_character(),
+                     col_date(format = "%m/%d/%Y"),
+                     col_double(),
+                     col_character(),
+                     col_character(),
+                     col_character(),
+                     col_character(),
+                     col_character(),
+                     col_character(),
+                     col_double(),
+                     col_double(),
+                     col_character()
+                     )
+                  )
+```
+
+# Limpeza de dados #
+
+# Primeiro foi necessário unnest a base de dados, porque numa mesma coluna encontravam-se os diferentes genre dos filmes separados por vírgulas.
+```{r unnest-genres}
+movies_unnested  <- movies |>
+  separate_rows(genre, sep = ",") |>
+  mutate(genre = str_trim(genre)) |>
+  pivot_wider(names_from = genre,
+              values_from = genre,
+              values_fn = length,
+              values_fill = 0) |>
+  clean_names() |>
+  mutate(across(drama:tv_movie, ~ replace(., na != 0 & . == 0, NA))) |>
+  select(-na)
+```
+
+#Posteriormente, sentimos falta de cirar uma nova variavel, que permitisse avaliar o gross profit de cada filme. O dataframe foi então alterado.
+```{r calculate-gross-profit}
+movies <- movies_unnested |>
+  mutate(gross_profit = revenue - budget_x)
+```
+
+#Também optamos por eliminar todas os filmes com score de 0 do dataframe. Existiam rows de revenue com 0, mas como os filmes tinham status Released, foram mantidas no dataframe.
+
+```{r revise score}
+movies <- 
+  movies %>%
+  filter(score > 0)
+```
+
+
+# Exploratory Data Analysis #
+```{r check-data}
+summary(movies)
+str(movies)
+DataExplorer::create_report(movies)
+```
+
+# Descritivas #
+```{r Descriptives}
+sum(movies$budget_x)
+sum(movies$revenue)
+sum(movies$gross_profit)
+median(movies$budget_x)
+median(movies$revenue)
+median(movies$gross_profit)
+IQR(movies$budget_x)
+IQR(movies$revenue)
+IQR(movies$gross_profit)
+mean(movies$budget_x)
+mean(movies$revenue)
+mean(movies$gross_profit)
+sd(movies$budget_x)
+sd(movies$revenue)
+sd(movies$gross_profit)
+
+table(movies$status)
+table(movies$country)
+table(movies$orig_lang)
+table(movies$country, movies$status)
+
+table(movies$drama)
+table(movies$action)
+table(movies$science_fiction)
+table(movies$adventure)
+table(movies$animation)
+table(movies$family)
+table(movies$fantasy)
+table(movies$comedy)
+table(movies$thriller)
+table(movies$crime)
+table(movies$horror)
+table(movies$mystery)
+table(movies$history)
+table(movies$war)
+table(movies$documentary)
+table(movies$romance)
+table(movies$music)
+table(movies$western)
+table(movies$tv_movie)
+```
+
+#Também analisamos a média e o valor max do budget, revenue e gross profit.
+
+```{r Group By Descriptives}
+movies %>%
+  group_by(country) %>%
+  summarize(meanbudget_bycountry = mean(budget_x),
+            meangrossprofit_bycountry = mean(gross_profit),
+            meanrevenue_bycountry = mean(revenue),
+            maxbudget_bycountry = max(budget_x),
+            maxrevenue_bycountry = max(revenue),
+            maxgrossprofit_bycountry = max(gross_profit),
+            meanscore_bycountry = mean(score),
+            maxscore_bycountry = max(score))%>%
+  ungroup
+
+```
+
+
+<<<<<<< HEAD
+# Visuals
+
+```{r visualizations}
+movies_unnested <- movies_unnested %>%
+  mutate(year = year(date_x))
+
+movies_unnested %>%
+  filter(score > 90)
+
+
+library(ggplot2)
+
+#Conta o número de filmes por ano
+
+ggplot(movies_unnested) +
+ aes(x = year) +
+ geom_histogram(bins = 30L, fill = "#4682B4") +
+ theme_classic()
+
+#Diagrama de caixas com o ganho nos filmes
+
+ggplot(movies_unnested) +
+  aes(x = "", y = revenue) +
+  geom_boxplot(fill = "#4682B4") +
+  theme_minimal()
+
+#Compara o Profit com budget
+movies_unnested <- movies_unnested %>%
+  mutate(profit = revenue - budget_x)
+
+ggplot(movies_unnested) +
+  aes(x = budget_x, y = profit) +
+  geom_point(shape = "circle", size = 1.5, colour = "#4682B4") +
+  theme_minimal()
+
+#Compara o score com o ano do filme
+
+ggplot(movies_unnested) +
+ aes(x = year, y = score) +
+ geom_point(shape = "circle", size = 1.5, colour = "#4682B4") +
+ theme_minimal()
+
+```
+
+
+
+# Normal Distribution #
+#Não obtivemos resultados devido ao tamanho do dataframe.
+```{r normal distribution}
+shapiro.test(movies$score)
+shapiro.test(movies$budget_x)
+shapiro.test(movies$revenue)
+shapiro.test(movies$gross_profit)
+```
+
+
+# Correlações #
+
+```{r correlations}
+
+movies_numeric <-
+  movies %>%
+  select (budget_x,revenue,score, gross_profit)
+  
+correlation_matrix <-
+  cor(movies_numeric, method = "pearson")
+
+print(correlation_matrix)
+
+corrplot(correlation_matrix)
+
+```
+
+# Clustering # 
+
+```{r select attributes & zscores}
+
+#Select attributes
+#The same used for correlations
+
+#Z-Scores
+
+movies_numeric_standardized <-
+  movies_numeric %>%
+  mutate(zscore_budget = (budget_x - mean(budget_x))/sd(budget_x),
+         zscore_revenue = (revenue - mean(revenue))/sd(revenue),
+         zscore_score = (score - mean(score))/sd(score),
+         zscore_grossprofit = (gross_profit - mean(gross_profit))/sd(gross_profit)) %>%
+  select(zscore_budget, zscore_revenue, zscore_score, zscore_grossprofit)
+      
+movies_numeric_standardized
+
+```
+ 
+```{r clustering}
+
+resultado_kmeans <- kmeans(movies_numeric_standardized, centers = 3)
+movies_numeric_standardized$cluster <- as.character(resultado_kmeans$cluster)
+
+ggplot(movies_numeric_standardized) +
+  aes(
+    x = zscore_revenue,
+    y = zscore_score,
+    colour = cluster
+  ) +
+  geom_point(shape = "circle", size = 1.5) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+
+ggplot(movies_numeric_standardized) +
+  aes(
+    x = zscore_budget,
+    y = zscore_score,
+    colour = cluster
+  ) +
+  geom_point(shape = "circle", size = 1.5) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+
+ggplot(movies_numeric_standardized) +
+  aes(x = zscore_budget, y = zscore_revenue, colour = cluster) +
+  geom_point(shape = "circle", size = 1.5) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+
+ggplot(movies_numeric_standardized) +
+  aes(
+    x = zscore_grossprofit,
+    y = zscore_score,
+    colour = cluster
+  ) +
+  geom_point(shape = "circle", size = 1.5) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+```
+
+```{r clusters centers}
+
+centers <- as.data.frame(resultado_kmeans$centers)
+centers$cluster <- rownames(resultado_kmeans$centers)
+
+ggparcoord(centers, columns = 1:4, groupColumn = 5) 
+```
+
+```{r better hyper-parameters}
+
+fviz_nbclust(movies_numeric_standardized, kmeans, method = "wss", k.max = 10)
+
+```
+
+```{r after elbow method}
+# Choose 5 clusters - Only 2 clusters would not be informative enough.
+
+resultado_kmeans <- kmeans(movies_numeric_standardized, centers = 4)
+movies_numeric_standardized$cluster <- as.character(resultado_kmeans$cluster)
+
+centers <- as.data.frame(resultado_kmeans$centers)
+centers$cluster <- rownames(resultado_kmeans$centers)
+
+ggparcoord(centers, columns = 1:4, groupColumn = 5) 
+
+##Name of Clusters & Examples of Movies
+
+# Cluster 1 - Filmes com budget e lucros médios, mas muito bem pontuados (Budget, Revenue, Profit médios e Score elevado)
+# Cluster 2 - Filmes com budget e lucros elevados a médios, e mal pontuados (Budget elevado, Revenue e Profit médio, e Score baixo)
+# Cluster 3 - Filmes com budget e lucros baixos, e mediamente pontuados (Budget, Revenue e Profit baixo, Score médio)
+# Cluster 4 - Filmes com budget e lucros elevados, e muito bem pontuados (Budget, Revenue e Profit elevado, Score elevado)
+
+```
+
+# Classification #
+
+# Regression #
+
